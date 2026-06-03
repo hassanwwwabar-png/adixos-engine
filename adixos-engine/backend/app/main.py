@@ -272,9 +272,15 @@ def get_messages(platform: str, user_id: str):
 @app.get("/api/orders")
 # 🛒 مسار جلب الطلبات لعرضها في لوحة التحكم
 @app.get("/api/orders")
-def get_orders():
-    # 👈 أضفنا customer_phone في الاستعلام
-    cursor.execute("SELECT id, customer_name, customer_address, product_name, total_price, platform, created_at, customer_phone FROM orders ORDER BY created_at DESC")
+def get_orders(user_id: str):
+    # 👈 أضفنا فلتر WHERE user_id = ? لضمان الخصوصية
+    cursor.execute("""
+        SELECT id, customer_name, customer_address, product_name, total_price, platform, created_at, customer_phone 
+        FROM orders 
+        WHERE user_id = ? 
+        ORDER BY created_at DESC
+    """, (user_id,))
+    
     rows = cursor.fetchall()
     
     return [{
@@ -285,7 +291,7 @@ def get_orders():
         "total_price": r[4],
         "platform": r[5],
         "date": r[6],
-        "customer_phone": r[7] if len(r) > 7 else "N/A" # 👈 إضافة الرقم هنا
+        "customer_phone": r[7] if len(r) > 7 else "N/A"
     } for r in rows]
 # ==========================================
 # 🤖 دالة إرسال الرد عبر واتساب API

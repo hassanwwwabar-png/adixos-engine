@@ -7,9 +7,19 @@ export default function WhatsappOverview() {
   const [revenue, setRevenue] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  // 🚀 جلب الطلبات الحقيقية
+  // 🚀 جلب الطلبات الحقيقية (الخاصة بهذا المستخدم فقط)
   useEffect(() => {
-    fetch("/api/orders")
+    // 1. جلب بيانات المستخدم الحالي من المتصفح
+    const storedUser = localStorage.getItem("adixos_user");
+    if (!storedUser) {
+      setLoading(false);
+      return; // إذا لم يكن هناك مستخدم مسجل، لا تفعل شيئاً
+    }
+    
+    const user = JSON.parse(storedUser);
+
+    // 2. إرسال الـ ID الخاص به للسيرفر كـ Query Parameter
+    fetch(`/api/orders?user_id=${user.id}`)
       .then(res => res.json())
       .then(data => {
         setOrders(data);
