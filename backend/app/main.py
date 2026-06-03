@@ -616,7 +616,7 @@ def upload_payment(data: PaymentUpload):
         print(f"✅ Image saved to: {file_path}")
             
         # 4. الرابط الذي سيتم إرساله للوحة الإدارة
-        final_url = f"http://127.0.0.1:8005/uploads/{file_name}"
+        final_url = f"http://2.24.14.60:8000/uploads/{file_name}"
         
         # 5. الحفظ في قاعدة البيانات
         payment_id = "PAY-" + str(uuid.uuid4())[:8]

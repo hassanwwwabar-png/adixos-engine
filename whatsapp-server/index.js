@@ -75,9 +75,12 @@ ${dynamicCatalog}
         }
 
         const client = new Client({
-            authStrategy: new LocalAuth({ clientId: userId }),
-            puppeteer: { headless: true }
-        });
+    authStrategy: new LocalAuth({ clientId: userId }),
+    puppeteer: { 
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    }
+});
 
         activeClients[userId] = client;
 
@@ -89,7 +92,7 @@ ${dynamicCatalog}
             
             try {
                 // 1. فحص الاحتيال (نفس الكود القديم)
-                const response = await fetch("http://127.0.0.1:8005/api/check-whatsapp-fraud", {
+                const response = await fetch("http://2.24.14.60:8000/api/check-whatsapp-fraud", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ user_id: userId, phone_number: phoneNumber })
@@ -104,7 +107,7 @@ ${dynamicCatalog}
                 }
 
                 // 🛑 2. الفحص الجديد: فحص الاشتراك المالي!
-                const subRes = await fetch(`http://127.0.0.1:8005/api/subscription-status/${userId}`);
+                const subRes = await fetch(`http://2.24.14.60:8000/api/subscription-status/${userId}`);
                 const subData = await subRes.json();
                 
                 if (!subData.active) {
@@ -128,7 +131,7 @@ ${dynamicCatalog}
 
             // 🛑 جدار الأمان: هل الاشتراك لا يزال فعالاً قبل أن نرد على الزبون؟
             try {
-                const subRes = await fetch(`http://127.0.0.1:8005/api/subscription-status/${userId}`);
+                const subRes = await fetch(`http://2.24.14.60:8000/api/subscription-status/${userId}`);
                 const subData = await subRes.json();
                 
                 if (!subData.active) {
@@ -187,7 +190,7 @@ ${dynamicCatalog}
                 // 🚨 فحص الاستغاثة والطلبات
                 if (response.includes('[ESCALATE]')) {
                     try {
-                        await fetch("http://127.0.0.1:8005/api/escalations", {
+                        await fetch("http://2.24.14.60:8000/api/escalations", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ phone_id: "bot", customer_phone: sender.split('@')[0], question: msg.body })
@@ -200,7 +203,7 @@ ${dynamicCatalog}
                 if (orderMatch) {
                     try {
                         const orderData = JSON.parse(orderMatch[1]);
-                        await fetch("http://127.0.0.1:8005/api/orders", {
+                        await fetch("http://2.24.14.60:8000/api/orders", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({ ...orderData, phone_id: "bot", customer_phone: sender.split('@')[0], platform: "whatsapp" })
