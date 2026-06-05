@@ -13,12 +13,14 @@ app = FastAPI()
 # 🛡️ إعداد الـ CORS للسماح للواجهة الأمامية بالاتصال
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"], 
+    allow_origins=[
+        "http://localhost:3000", # نتركه للتجارب المحلية
+        "https://adixos-frontend.vercel.app" # 👈 الدومين الحقيقي الخاص بك
+    ], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 # ==========================================
 # 🔑 مفاتيح ميتا (Meta Credentials)
 # ==========================================
@@ -228,7 +230,8 @@ def login(user: LoginRequest):
 
 @app.post("/api/connect")
 def connect_platform(req: ConnectRequest):
-    REDIRECT_URI = "http://localhost:3000/connect"
+    # 👈 تم تغيير الرابط ليعود العميل إلى لوحة التحكم الحقيقية بعد ربط فيسبوك
+    REDIRECT_URI = "https://adixos-frontend.vercel.app/connect" 
     meta_url = f"https://graph.facebook.com/v19.0/oauth/access_token"
     params = {
         "client_id": META_APP_ID,
@@ -236,6 +239,7 @@ def connect_platform(req: ConnectRequest):
         "client_secret": META_APP_SECRET,
         "code": req.auth_code
     }
+    # ... بقية الكود كما هو ...
     
     response = requests.get(meta_url, params=params)
     data = response.json()
