@@ -8,6 +8,7 @@ export default function WhatsappOverview() {
   const [loading, setLoading] = useState(true);
 
   // 🚀 جلب الطلبات الحقيقية (الخاصة بهذا المستخدم فقط)
+  // 🚀 جلب الطلبات الحقيقية (الخاصة بهذا المستخدم فقط) بدون تخزين مؤقت
   useEffect(() => {
     // 1. جلب بيانات المستخدم الحالي من المتصفح
     const storedUser = localStorage.getItem("adixos_user");
@@ -18,11 +19,12 @@ export default function WhatsappOverview() {
     
     const user = JSON.parse(storedUser);
 
-    // 2. إرسال الـ ID الخاص به للسيرفر كـ Query Parameter
-    fetch(`/api/orders?user_id=${user.id}`)
+    // 2. إرسال الـ ID الخاص به مع منع الذاكرة المؤقتة (no-store)
+    fetch(`/api/orders?user_id=${user.id}`, { cache: "no-store" })
       .then(res => res.json())
       .then(data => {
         setOrders(data);
+        // حساب إجمالي المبيعات من الطلبات الخاصة بهذا العميل فقط
         const total = data.reduce((sum: number, order: any) => sum + (order.total_price || 0), 0);
         setRevenue(total);
         setLoading(false);
@@ -32,7 +34,6 @@ export default function WhatsappOverview() {
         setLoading(false);
       });
   }, []);
-
   // 🗑️ دالة حذف الطلب
   const handleDeleteOrder = async (id: string) => {
     if (!confirm("Are you sure you want to delete this order?")) return;
