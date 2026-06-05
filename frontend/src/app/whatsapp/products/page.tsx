@@ -7,25 +7,32 @@ export default function ProductsPage() {
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [details, setDetails] = useState("");
-  const [image, setImage] = useState<string | null>(null); // 📸 حالة الصورة الجديدة
+  const [image, setImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // 1. جلب المنتجات من الذاكرة عند فتح الصفحة
+  // 🚀 1. جلب المنتجات الحقيقية من السيرفر
   useEffect(() => {
-    const savedProducts = JSON.parse(localStorage.getItem("adixos_products") || "[]");
-    setProducts(savedProducts);
+    const storedUser = localStorage.getItem("adixos_user");
+    if (!storedUser) return;
+    
+    const user = JSON.parse(storedUser);
+
+    fetch(`/api/products?user_id=${user.id}`, { cache: "no-store" })
+      .then(res => res.json())
+      .then(data => {
+        setProducts(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Error fetching products:", err);
+        setLoading(false);
+      });
   }, []);
 
-  // 2. دالة حفظ المنتجات في الذاكرة
-  const saveProducts = (newProducts: any[]) => {
-    setProducts(newProducts);
-    localStorage.setItem("adixos_products", JSON.stringify(newProducts));
-  };
-
-  // 📸 3. دالة رفع الصورة وتحويلها
+  // 📸 2. دالة رفع الصورة
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // يفضل ألا تكون الصورة عملاقة جداً حتى لا تملأ الذاكرة
       if (file.size > 3 * 1024 * 1024) {
         alert("⚠️ حجم الصورة كبير جداً! يرجى رفع صورة أقل من 3 ميجابايت.");
         return;
@@ -36,33 +43,60 @@ export default function ProductsPage() {
     }
   };
 
-  // 4. إضافة منتج جديد
-  const handleAddProduct = (e: React.FormEvent) => {
+  // 🚀 3. إضافة منتج وإرساله للسيرفر
+  const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !price) return;
 
+    const storedUser = localStorage.getItem("adixos_user");
+    if (!storedUser) {
+      alert("الرجاء تسجيل الدخول أولاً");
+      return;
+    }
+    const user = JSON.parse(storedUser);
+
     const newProduct = {
-      id: Date.now().toString(),
+      user_id: user.id, // 👈 ربط المنتج بهذا المستخدم حصراً
       name,
       price: parseFloat(price),
       details: details || "بدون تفاصيل إضافية",
-      image: image, // 📸 حفظ الصورة مع المنتج
+      image: image,
     };
 
-    const updatedProducts = [...products, newProduct];
-    saveProducts(updatedProducts);
+    try {
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newProduct),
+      });
 
-    // تفريغ الخانات بعد الإضافة
-    setName("");
-    setPrice("");
-    setDetails("");
-    setImage(null);
+      if (res.ok) {
+        // تحديث القائمة بعد الإضافة بنجاح
+        fetch(`/api/products?user_id=${user.id}`, { cache: "no-store" })
+          .then(r => r.json())
+          .then(data => setProducts(data));
+          
+        // تفريغ الخانات
+        setName("");
+        setPrice("");
+        setDetails("");
+        setImage(null);
+      } else {
+        alert("Failed to save product to server.");
+      }
+    } catch (error) {
+      console.error("Error saving product:", error);
+    }
   };
 
-  // 5. حذف منتج
-  const handleDelete = (id: string) => {
-    const updatedProducts = products.filter(p => p.id !== id);
-    saveProducts(updatedProducts);
+  // 🚀 4. حذف منتج من السيرفر
+  const handleDelete = async (id: string) => {
+    try {
+      await fetch(`/api/products/${id}`, { method: "DELETE" });
+      setProducts(prev => prev.filter(p => p.id !== id));
+    } catch (error) {
+      console.error("Error deleting product:", error);
+    }
   };
 
   return (
@@ -87,7 +121,7 @@ export default function ProductsPage() {
               <Plus className="text-green-500" /> Add New Item
             </h2>
             
-            {/* 📸 رفع الصورة (الجديد) */}
+            {/* 📸 رفع الصورة */}
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Product Image</label>
               <div className="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center hover:bg-slate-50 transition cursor-pointer relative group h-32 flex flex-col items-center justify-center overflow-hidden bg-slate-50/50">
@@ -112,7 +146,7 @@ export default function ProductsPage() {
               <label className="block text-sm font-bold text-slate-700 mb-1">Product Name</label>
               <div className="relative">
                 <Tag className="absolute left-3 top-3.5 text-slate-400" size={18} />
-                <input type="text" required value={name} onChange={(e)=>setName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 outline-none focus:ring-2 focus:ring-green-500 font-medium" placeholder="e.g. iPhone 15 Pro" />
+                <input type="text" required value={name} onChange={(e)=>setName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 outline-none focus:ring-2 focus:ring-green-500 font-medium" placeholder="e.g. Digital Marketing Consultation" />
               </div>
             </div>
 
@@ -120,7 +154,7 @@ export default function ProductsPage() {
               <label className="block text-sm font-bold text-slate-700 mb-1">Price ($)</label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-3.5 text-slate-400" size={18} />
-                <input type="number" step="0.01" required value={price} onChange={(e)=>setPrice(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 outline-none focus:ring-2 focus:ring-green-500 font-medium" placeholder="999.00" />
+                <input type="number" step="0.01" required value={price} onChange={(e)=>setPrice(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 outline-none focus:ring-2 focus:ring-green-500 font-medium" placeholder="99.00" />
               </div>
             </div>
 
@@ -128,7 +162,7 @@ export default function ProductsPage() {
               <label className="block text-sm font-bold text-slate-700 mb-1">Details & AI Context</label>
               <div className="relative">
                 <FileText className="absolute left-3 top-3.5 text-slate-400" size={18} />
-                <textarea rows={3} value={details} onChange={(e)=>setDetails(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 outline-none focus:ring-2 focus:ring-green-500 resize-none text-sm" placeholder="Has 8GB RAM, available in M, L sizes..." />
+                <textarea rows={3} value={details} onChange={(e)=>setDetails(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 outline-none focus:ring-2 focus:ring-green-500 resize-none text-sm" placeholder="Comprehensive digital strategy for online growth..." />
               </div>
               <p className="text-[11px] font-bold text-slate-400 mt-2 uppercase tracking-wide">💡 AI uses this to answer questions</p>
             </div>
@@ -147,7 +181,9 @@ export default function ProductsPage() {
             </div>
             
             <div className="p-6">
-              {products.length === 0 ? (
+              {loading ? (
+                 <div className="text-center py-10"><p className="text-slate-500">Loading your catalog...</p></div>
+              ) : products.length === 0 ? (
                 <div className="text-center py-16 border-2 border-dashed border-slate-100 rounded-3xl">
                   <ShoppingBag size={48} className="mx-auto text-slate-300 mb-4" />
                   <p className="text-slate-500 font-bold text-lg">Your catalog is empty.</p>

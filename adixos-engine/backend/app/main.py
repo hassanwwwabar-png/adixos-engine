@@ -6,10 +6,18 @@ import bcrypt
 import uuid
 import requests
 from datetime import datetime, timedelta 
- # 👈 هذا هو السطر المفقود
 from fastapi.staticfiles import StaticFiles
+from typing import Optional  # 👈 هذا هو السطر الجديد الذي أضفناه
+
 app = FastAPI()
 
+# 👈 أضف هيكل المنتج هنا مباشرة تحت app = FastAPI()
+class Product(BaseModel):
+    user_id: str
+    name: str
+    price: float
+    details: str
+    image: Optional[str] = None
 # 🛡️ إعداد الـ CORS للسماح للواجهة الأمامية بالاتصال
 app.add_middleware(
     CORSMiddleware,
@@ -52,6 +60,21 @@ cursor.execute("""
         subscription_ends TIMESTAMP
     )
 """)
+conn.commit()
+# ==========================================
+# 🛍️ جدول الكتالوج (المنتجات الخاصة بكل مستخدم)
+# ==========================================
+cursor.execute("""
+    CREATE TABLE IF NOT EXISTS products (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        name TEXT,
+        price REAL,
+        details TEXT,
+        image TEXT
+    )
+""")
+conn.commit()
 
 # 2. جدول الاتصالات
 cursor.execute("""
@@ -225,6 +248,44 @@ def login(user: LoginRequest):
             "subscriptionEnds": sub_ends # 👈 أضفنا هذا!
         }
     }
+
+
+
+
+
+
+
+    # 🛍️ جلب المنتجات (مخصصة لكل مستخدم)
+@app.get("/api/products")
+def get_products(user_id: str):
+    cursor.execute("SELECT id, name, price, details, image FROM products WHERE user_id = ?", (user_id,))
+    rows = cursor.fetchall()
+    return [
+        {"id": r[0], "name": r[1], "price": r[2], "details": r[3], "image": r[4]}
+        for r in rows
+    ]
+
+# 🛍️ إضافة منتج جديد
+@app.post("/api/products")
+def add_product(prod: Product):
+    product_id = str(uuid.uuid4())
+    cursor.execute(
+        "INSERT INTO products (id, user_id, name, price, details, image) VALUES (?, ?, ?, ?, ?, ?)",
+        (product_id, prod.user_id, prod.name, prod.price, prod.details, prod.image)
+    )
+    conn.commit()
+    return {"message": "Product added successfully", "id": product_id}
+
+# 🛍️ حذف منتج
+@app.delete("/api/products/{product_id}")
+def delete_product(product_id: str):
+    cursor.execute("DELETE FROM products WHERE id = ?", (product_id,))
+    conn.commit()
+    return {"message": "Product deleted successfully"}
+
+
+
+
 # 🔗 مسار ربط منصات ميتا (OAuth)
 # ==========================================
 
@@ -706,7 +767,8 @@ cursor.execute("""
         created_at TIMESTAMP
     )
 """)
-conn.commit()
+
+
 
 class PaymentUpload(BaseModel):
     user_id: str
