@@ -6,7 +6,7 @@ export default function Sidebar() {
       {/* 🟢 الشعار */}
       <div className="p-6 border-b border-gray-100 flex items-center justify-center">
         <h1 className="text-2xl font-black text-blue-700 tracking-tighter">
-          ADIXOS <span className="text-gray-400 text-sm font-normal">SaaS</span>
+           ADIXOS <span className="text-gray-400 text-sm font-normal">SaaS</span>
         </h1>
       </div>
 
@@ -46,4 +46,4 @@ export default function Sidebar() {
       </div>
     </aside>
   );
-}
+}      

@@ -28,7 +28,7 @@ class OrderResponse(BaseModel):
     customer_phone: str
     product_name: str
     total_price: float
-    status: str
+    status: str   
 
     class Config:
         from_attributes = True
