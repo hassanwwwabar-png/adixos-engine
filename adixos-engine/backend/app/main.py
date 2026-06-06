@@ -216,17 +216,17 @@ class ConnectRequest(BaseModel):
 # ==========================================
 # 🚀 مسارات التوثيق (Auth Routes)
 # ==========================================
-
 @app.post("/api/login")
 def login(user: LoginRequest):
-    # 1. جلب تاريخ الانتهاء (subscription_ends) مع البيانات
-    cursor.execute("SELECT id, name, store_name, password_hash, role, subscription_ends FROM users WHERE email = ?", (user.email,))
+    # 1. جلب الإيميل (email) مع باقي البيانات
+    cursor.execute("SELECT id, name, email, store_name, password_hash, role, subscription_ends FROM users WHERE email = ?", (user.email,))
     db_user = cursor.fetchone()
 
     if not db_user:
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
-    user_id, name, store_name, password_hash, role, sub_ends = db_user
+    # 👈 إضافة email هنا لاستقباله من قاعدة البيانات
+    user_id, name, email, store_name, password_hash, role, sub_ends = db_user 
 
     if isinstance(password_hash, str):
         if password_hash.startswith("b'") or password_hash.startswith('b"'):
@@ -237,18 +237,18 @@ def login(user: LoginRequest):
     if not bcrypt.checkpw(user.password.encode('utf-8'), password_hash):
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
-    # 2. إرسال تاريخ الانتهاء للواجهة الأمامية
+    # 2. إرسال الإيميل للواجهة الأمامية لكي تحفظه
     return {
         "message": "Login successful", 
         "user": {
             "id": user_id, 
             "name": name, 
+            "email": email,           # 👈 أضفنا الإيميل هنا!
             "storeName": store_name, 
             "role": role,
-            "subscriptionEnds": sub_ends # 👈 أضفنا هذا!
+            "subscriptionEnds": sub_ends 
         }
     }
-
 
 
 
