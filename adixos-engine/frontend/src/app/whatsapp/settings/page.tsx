@@ -23,12 +23,19 @@ export default function SettingsPage() {
   });
 
   // 🚀 جلب البيانات الحقيقية من السيرفر عند فتح الصفحة
+// 🚀 جلب البيانات الحقيقية من السيرفر عند فتح الصفحة
   useEffect(() => {
     const savedUser = localStorage.getItem("adixos_user");
     if (savedUser) {
       const parsedUser = JSON.parse(savedUser);
       setUser(parsedUser);
-      setFormData({ ...formData, name: parsedUser.name, email: parsedUser.email || "admin@store.com" });
+      
+      // 🎯 قراءة اسم المتجر والإيميل الحقيقيين من الذاكرة
+      setFormData({ 
+        ...formData, 
+        name: parsedUser.store_name || parsedUser.name || "", 
+        email: parsedUser.email || "" 
+      });
       
       // سؤال محرك الواتساب عن الحالة
       fetchWhatsappStatus(parsedUser.id);
