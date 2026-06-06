@@ -6,11 +6,16 @@ export default function RequiresAttention() {
   const [escalations, setEscalations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 1. دالة جلب البيانات الحقيقية من السيرفر
+  // 1. دالة جلب البيانات الحقيقية من السيرفر (معزولة برقم المستخدم)
   const fetchEscalations = async () => {
     try {
-      // 🚨 هذا الرابط يتصل بالبايثون مباشرة لجلب المشاكل المسجلة
-      const res = await fetch("/api/escalations");
+      // 🚀 استخراج المستخدم الحالي من الذاكرة
+      const storedUser = localStorage.getItem("adixos_user");
+      if (!storedUser) return;
+      const user = JSON.parse(storedUser);
+
+      // 🚨 إرسال user_id للسيرفر لجلب إنذارات هذا الحساب فقط
+      const res = await fetch(`/api/escalations?user_id=${user.id}`, { cache: "no-store" });
       const data = await res.json();
       setEscalations(data || []);
     } catch (error) {
@@ -27,14 +32,12 @@ export default function RequiresAttention() {
     return () => clearInterval(interval);
   }, []);
 
-  // 3. دالة حذف المشكلة بعد حلها (اختيارية، تحتاج إضافة مسار DELETE في البايثون إذا أردت تفعيلها)
-  // حالياً سنقوم بإخفائها من الشاشة فقط
   // 3. دالة حذف المشكلة نهائياً من قاعدة البيانات والشاشة
   const markAsResolved = async (id: string) => {
     if(!confirm("Are you sure you resolved this issue?")) return;
     
     try {
-      // 🚀 إرسال أمر الحذف للسيرفر (البايثون)
+      // 🚀 إرسال أمر الحذف للسيرفر
       await fetch(`/api/escalations/${id}`, { 
         method: "DELETE" 
       });
@@ -55,7 +58,7 @@ export default function RequiresAttention() {
           <MessageSquareWarning size={32} />
         </div>
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900">Requires Human Attention</h1>
+          <h1 className="text-3xl font-extrabold text-slate-900">Requires Attention</h1>
           <p className="text-slate-500">Real-time alerts for messages the AI couldn't answer.</p>
         </div>
       </div>
@@ -91,7 +94,7 @@ export default function RequiresAttention() {
                     +{esc.customer_phone}
                   </span>
                   <span className="text-xs text-slate-400 flex items-center gap-1">
-                    <Clock size={12}/> {new Date(esc.date).toLocaleTimeString()}
+                    <Clock size={12}/> {esc.date ? new Date(esc.date).toLocaleTimeString() : "Now"}
                   </span>
                 </div>
                 

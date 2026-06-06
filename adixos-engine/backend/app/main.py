@@ -399,6 +399,7 @@ async def verify_webhook(request: Request):
     return Response(content="Forbidden", status_code=403)
 
 # 2. استقبال الرسائل وحفظها والرد عليها
+# 2. استقبال الرسائل وحفظها والرد عليها
 @app.post("/webhook")
 async def receive_whatsapp_message(request: Request):
     body = await request.json()
@@ -406,6 +407,10 @@ async def receive_whatsapp_message(request: Request):
     try:
         if body.get("entry") and body["entry"][0].get("changes") and body["entry"][0]["changes"][0].get("value"):
             value = body["entry"][0]["changes"][0]["value"]
+            
+            # استخراج معرف هاتف المتجر
+            phone_id = value.get("metadata", {}).get("phone_number_id", "UNKNOWN_PHONE")
+
             if value.get("messages"):
                 message = value["messages"][0]
                 customer_phone = message["from"] 
@@ -413,7 +418,7 @@ async def receive_whatsapp_message(request: Request):
                 
                 print(f"\n📩 رسالة جديدة من {customer_phone}: {message_text}")
                 
-                # أ) البحث عن المستخدم المالك لهذا الواتساب (مؤقتاً سنجلب أول مستخدم متصل)
+                # أ) البحث عن المستخدم المالك لهذا الواتساب
                 cursor.execute("SELECT user_id FROM connections WHERE platform='whatsapp' LIMIT 1")
                 conn_row = cursor.fetchone()
                 user_id = conn_row[0] if conn_row else "UNKNOWN_USER"
@@ -422,13 +427,26 @@ async def receive_whatsapp_message(request: Request):
                 msg_id = "MSG-" + str(uuid.uuid4())[:8]
                 cursor.execute("INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?)", 
                                (msg_id, user_id, "whatsapp", customer_phone, message_text, "incoming"))
-                conn.commit()
                 
-                # ج) إرسال رد تلقائي
-                reply_text = f"مرحباً! لقد استلمنا رسالتك: '{message_text}'. كيف يمكننا مساعدتك؟ 🤖"
+                # ج) الرد التلقائي وتفعيل الإنذار إذا طلب العميل مساعدة
+                if "مساعدة" in message_text or "help" in message_text.lower():
+                    esc_id = str(uuid.uuid4())
+                    now = datetime.now()
+                    
+                    # 🚨 حفظ الإنذار مع user_id لكي يظهر في داشبورد هذا العميل فقط
+                    cursor.execute("""
+                        INSERT INTO escalations (id, user_id, phone_id, customer_phone, question, created_at) 
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (esc_id, user_id, phone_id, customer_phone, message_text, now))
+                    
+                    reply_text = "تم تحويل رسالتك إلى خدمة العملاء البشرية. سيقوم الفريق بالرد عليك قريباً! 👨‍💻"
+                else:
+                    reply_text = f"مرحباً! لقد استلمنا رسالتك: '{message_text}'. كيف يمكننا مساعدتك؟ 🤖"
+                    
+                # إرسال الرد (تأكد أن دالة send_whatsapp_reply موجودة عندك)
                 send_whatsapp_reply(customer_phone, reply_text)
 
-                # د) حفظ رد البوت في قاعدة البيانات
+                # د) حفظ رد البوت
                 reply_id = "MSG-" + str(uuid.uuid4())[:8]
                 cursor.execute("INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?)", 
                                (reply_id, user_id, "whatsapp", "Adixos AI", reply_text, "outgoing"))
@@ -438,7 +456,7 @@ async def receive_whatsapp_message(request: Request):
         print(f"حدث خطأ أثناء قراءة الرسالة: {e}")
 
     return Response(content="EVENT_RECEIVED", status_code=200)
-    from datetime import datetime, timedelta
+   
 
 # ... (الكود السابق في الأعلى كما هو) ...
 
@@ -584,10 +602,14 @@ def create_escalation(esc: EscalationCreate):
     return {"message": "Escalation saved!"}
 
 # مسار جلب الأسئلة الصعبة للوحة الإدارة
-# 🚨 مسار جلب الإنذارات (الأسئلة التي لم يعرف البوت إجابتها)
+# # 🚨 مسار جلب الإنذارات (معزول برقم المستخدم)
 @app.get("/api/escalations")
-def get_escalations():
-    cursor.execute("SELECT id, customer_phone, question, created_at FROM escalations ORDER BY created_at DESC")
+def get_escalations(user_id: str):
+    # الفلترة باستخدام WHERE user_id = ?
+    cursor.execute(
+        "SELECT id, customer_phone, question, created_at FROM escalations WHERE user_id = ? ORDER BY created_at DESC", 
+        (user_id,)
+    )
     rows = cursor.fetchall()
     
     return [{
@@ -597,6 +619,12 @@ def get_escalations():
         "date": r[3]
     } for r in rows]
 
+# ✅ مسار حذف الإنذار (بعد حله من قبل المدير)
+@app.delete("/api/escalations/{escalation_id}")
+def delete_escalation(escalation_id: str):
+    cursor.execute("DELETE FROM escalations WHERE id = ?", (escalation_id,))
+    conn.commit()
+    return {"message": "Escalation resolved and deleted"}
     # 🗑️ مسار حذف الإنذار بعد أن يحله المدير
 @app.delete("/api/escalations/{esc_id}")
 def delete_escalation(esc_id: str):
@@ -619,13 +647,14 @@ class PaymentUpload(BaseModel):
     user_id: str
     image_url: str # سنستخدم رابط وهمي أو Base64 للتسهيل حالياً
 # 🆘 جدول رسائل الدعم (Support Tickets)
+# 🚨 جدول الإنذارات والأسئلة الصعبة (Escalations)
 cursor.execute("""
-    CREATE TABLE IF NOT EXISTS support_messages (
+    CREATE TABLE IF NOT EXISTS escalations (
         id TEXT PRIMARY KEY,
-        user_id TEXT,
-        user_name TEXT,
-        issue_type TEXT,
-        message TEXT,
+        user_id TEXT,  # 👈 هذا هو الحارس الذي أضفناه
+        phone_id TEXT,
+        customer_phone TEXT,
+        question TEXT,
         created_at TIMESTAMP
     )
 """)
