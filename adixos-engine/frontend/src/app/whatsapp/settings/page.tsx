@@ -37,7 +37,8 @@ export default function SettingsPage() {
 
   const fetchWhatsappStatus = async (userId: string) => {
     try {
-      const res = await fetch(`fetch("/api/whatsapp/status/${userId}")/api/whatsapp/status/${userId}`);
+      // 🛠️ تم إصلاح الرابط هنا وإضافة منع الكاش
+      const res = await fetch(`/api/whatsapp/status/${userId}`, { cache: "no-store" });
       const data = await res.json();
       
       setIsWhatsappConnected(data.connected);
@@ -45,7 +46,7 @@ export default function SettingsPage() {
         setConnectedNumber(data.number); // 👈 وضع الرقم الحقيقي هنا
       }
     } catch (error) {
-      console.error("Error fetching WhatsApp status");
+      console.error("Error fetching WhatsApp status", error);
     }
   };
 
@@ -63,7 +64,8 @@ export default function SettingsPage() {
     
     setLoading(true);
     try {
-      const res = await fetch('fetch("/api/whatsapp/status/${userId}")/api/whatsapp/disconnect', { 
+      // 🛠️ تم إصلاح الرابط هنا أيضاً
+      const res = await fetch(`/api/whatsapp/disconnect`, { 
         method: 'POST',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user?.id })
